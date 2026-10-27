@@ -667,14 +667,6 @@ button {
   filter: drop-shadow(0 8px 34px rgba(179, 199, 111, 0.18));
 }
 
-.hero-sub {
-  max-width: 540px;
-  margin: 0;
-  color: var(--dim);
-  font-size: clamp(0.88rem, 2vw, 1rem);
-  line-height: 1.65;
-}
-
 .lobby-card {
   padding: clamp(1.1rem, 3vw, 1.75rem);
 }
@@ -2034,13 +2026,6 @@ body.modal-open {
   text-transform: uppercase;
 }
 
-.modal-sub {
-  margin: 0.4rem 0 0;
-  color: var(--faint);
-  font-size: 0.75rem;
-  line-height: 1.5;
-}
-
 .modal-x {
   display: grid;
   place-items: center;
@@ -3106,10 +3091,6 @@ body.modal-open {
 @media (max-width: 430px) {
   .hero-title {
     font-size: clamp(2.5rem, 12.5vw, 3.6rem);
-  }
-
-  .hero-sub {
-    font-size: 0.86rem;
   }
 
   .eyebrow {

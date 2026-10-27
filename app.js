@@ -234,7 +234,6 @@
           '<div>' +
             '<div class="modal-eyebrow">' + esc(options.eyebrow || 'PVP Tournier') + '</div>' +
             '<h2 class="modal-title" id="modalTitle">' + esc(options.title || '') + '</h2>' +
-            (options.subtitle ? '<p class="modal-sub">' + esc(options.subtitle) + '</p>' : '') +
           '</div>' +
           (S.modalDismissible ? '<button class="modal-x" type="button" data-close aria-label="Close dialog">✕</button>' : '') +
         '</div>' +
@@ -1269,7 +1268,6 @@
       type: 'send',
       eyebrow: 'Duel request',
       title: 'Send a challenge',
-      subtitle: 'Choose the gamemode pool, the round format and exactly how the draft will run.',
       body: sendModalBody(),
       footer:
         '<button class="btn btn-ghost" type="button" data-close>Cancel</button>' +
@@ -1641,7 +1639,6 @@
       type: 'requests',
       eyebrow: 'Duel requests',
       title: 'Requests',
-      subtitle: 'Incoming challenges and the requests you have sent.',
       body: requestsBody(),
       footer: '<button class="btn btn-outline" type="button" data-close>Close</button>'
     });
@@ -2229,9 +2226,6 @@
       size: 'md',
       eyebrow: step.kind === 'ban' ? 'Ban phase' : 'Pick phase',
       title: step.kind === 'ban' ? 'Deny a kit' : 'Lock in your kit',
-      subtitle:
-        (step.kind === 'ban' ? 'Remove one gamemode from the pool' : 'This gamemode joins the match timeline') +
-        ' · ' + remaining.length + ' available',
       body: '<div class="kit-grid">' + tiles + '</div>',
       footer: '<button class="btn btn-ghost" type="button" data-close>Cancel</button>'
     });
@@ -2591,7 +2585,6 @@
       size: 'sm',
       eyebrow: 'Abandon duel',
       title: 'Leave this duel?',
-      subtitle: 'The draft and the score will be lost for both players.',
       body: '<p class="hint">Your rival will be notified and returned to the lobby.</p>',
       footer:
         '<button class="btn btn-outline" type="button" data-close>Stay</button>' +
@@ -2607,7 +2600,6 @@
       dismissible: false,
       eyebrow: 'P2P link closed',
       title: 'Connection lost',
-      subtitle: 'The direct link to your rival dropped, so the match cannot continue.',
       body:
         '<p class="hint">This usually happens when the rival closes the tab, loses internet or ' +
         'refreshes the page. Both players must keep this page open.</p>',
