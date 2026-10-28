@@ -16,8 +16,8 @@
     'nethpot',
     'diasmp',
     'cart',
-    'mace',
     'spearmace',
+    'elytra-mace',
     'uhc',
     'smp',
     'vanilla'
@@ -118,7 +118,7 @@
 
   function kitArt(kit) {
     return (
-      '<img class="kit-art' + (kit.mono ? ' is-mono' : '') + '" src="icons/' +
+      '<img class="kit-art" src="icons/' +
       encodeURIComponent(kit.art || kit.id) + '.svg" alt="" ' +
       'width="1080" height="1080" draggable="false" />'
     );
@@ -302,6 +302,7 @@
     }
 
     updateFaceImg($('#lobbyFace'), (input && input.value) || '');
+    renderHeroModes();
     renderLobby();
     setNetStatus('idle', 'Standby');
     bindEvents();
@@ -465,6 +466,23 @@
     hint.classList.toggle('error', !!isError);
   }
 
+  function renderHeroModes() {
+    const root = $('#heroModeRibbon');
+    if (!root) return;
+
+    root.innerHTML = L.KITS.map(function (kit) {
+      return (
+        '<span class="hero-mode" title="' + esc(kit.name + ' · ' + kit.tag) + '">' +
+          kitIcon(kit) +
+          '<span class="hero-mode-name">' + esc(kit.name) + '</span>' +
+        '</span>'
+      );
+    }).join('');
+
+    const count = $('#heroModeCount');
+    if (count) count.textContent = L.KITS.length + ' modes';
+  }
+
   function renderLobby() {
     const input = $('#usernameInput');
     const connected = S.online;
@@ -488,7 +506,7 @@
           ? 'Linking…'
           : errored && S.username
             ? 'Retry link'
-            : 'Enter Lobby';
+            : 'Join Arena';
       connectBtn.disabled = connecting;
     }
 
@@ -573,6 +591,11 @@
   function loadDraftRules() {
     try {
       const raw = JSON.parse(localStorage.getItem(LS_RULES) || 'null');
+      if (raw && Array.isArray(raw.pool)) {
+        raw.pool = raw.pool.map(function (id) {
+          return id === 'mace' ? 'elytra-mace' : id;
+        });
+      }
       const normal = raw ? L.normalizeRules(raw) : null;
       if (normal && normal.ok) return normal.rules;
     } catch (err) {

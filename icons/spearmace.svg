@@ -1,12 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080">
-  <!-- Handle drawn upright, then turned so it runs to the bottom-left like the sword and the axe. -->
-  <g transform="rotate(45 540 540)">
-    <rect x="470" y="560" width="140" height="520" rx="70" fill="#8083BF"/>
-    <rect x="492" y="640" width="40" height="340" rx="20" fill="#B9BBF2"/>
-    <rect x="440" y="1004" width="200" height="124" rx="48" fill="#5B6270"/>
-    <rect x="434" y="528" width="212" height="92" rx="34" fill="#5B6270"/>
-  </g>
-  <polygon points="705,100 980,375 705,650 430,375" fill="#6F7886" stroke="#6F7886" stroke-width="36" stroke-linejoin="round"/>
-  <rect x="545" y="215" width="320" height="320" rx="44" fill="#A7B0BD"/>
-  <path d="M589,215 H805 L545,475 V259 A44,44 0 0 1 589,215 Z" fill="#C9D0DA"/>
+<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <path d="M27 105L94 38" stroke="#77717d" stroke-width="9" stroke-linecap="round"></path>
+  <path d="M27 105L94 38" stroke="#aaa0ad" stroke-width="3"></path>
+  <path d="M83 14L113 10L108 40L97 59L70 33Z" fill="#77717d" stroke="#b7a6b9" stroke-width="3"></path>
+  <path d="M83 14L97 30L108 40L113 10Z" fill="#b7a6b9"></path>
+  <path d="M70 33L97 59L88 65L64 41Z" fill="#514956"></path>
 </svg>

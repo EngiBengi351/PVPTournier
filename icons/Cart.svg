@@ -1,14 +1,26 @@
-<?xml version="1.0" standalone="no"?>
-<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20010904//EN"
- "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
-<svg version="1.0" xmlns="http://www.w3.org/2000/svg"
- width="96.000000pt" height="96.000000pt" viewBox="0 0 96.000000 96.000000"
- preserveAspectRatio="xMidYMid meet">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <g stroke-linejoin="round">
+    <!-- Minecart -->
+    <path d="M15 58L64 39L113 58L64 82Z" fill="#aeb5bd" stroke="#68717b" stroke-width="2"></path>
+    <path d="M15 58L64 82V112L15 87Z" fill="#777f89" stroke="#4c535d" stroke-width="2"></path>
+    <path d="M64 82L113 58V87L64 112Z" fill="#929aa4" stroke="#4c535d" stroke-width="2"></path>
+    <path d="M24 62L64 78L104 62" fill="none" stroke="#d2d7dc" stroke-width="4"></path>
 
-<g transform="translate(0.000000,96.000000) scale(0.100000,-0.100000)"
-fill="#000000" stroke="none">
-<path d="M323 832 l-153 -77 0 -57 0 -57 156 -77 156 -78 154 78 154 78 0 58
-0 57 -122 63 c-68 35 -132 69 -143 77 -11 7 -26 13 -35 12 -8 0 -84 -35 -167
--77z"/>
-</g>
+    <!-- TNT -->
+    <path d="M27 48L64 33L101 48L64 65Z" fill="#ef4934" stroke="#8f211c"></path>
+    <path d="M27 48L64 65V77L27 60Z" fill="#b72a22"></path>
+    <path d="M64 65L101 48V60L64 77Z" fill="#e34630"></path>
+
+    <!-- White TNT band -->
+    <path d="M27 53L64 70L101 53" fill="none" stroke="#f0e9dc" stroke-width="7"></path>
+    <path d="M27 53L64 70V76L27 60Z" fill="#e6e0d6"></path>
+    <path d="M64 70L101 53V60L64 77Z" fill="#d0c9c0"></path>
+
+    <!-- TNT lettering -->
+    <path d="M39 51L53 57V63L39 57Z" fill="#282b36"></path>
+    <path d="M76 57L90 51V57L76 63Z" fill="#282b36"></path>
+
+    <!-- Wheels -->
+    <path d="M30 89L40 94V105L30 100Z M88 94L99 89V100L88 105Z" fill="#343a43" stroke="#222831" stroke-width="2"></path>
+  </g>
 </svg>

@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0a0c07" />
-  <title>PVP Tournier — Minecraft 1v1 Draft &amp; Duel</title>
-  <meta name="description" content="Challenge a friend to a Minecraft 1v1. Draft kits with live pick &amp; ban, track rounds and crown a winner — directly peer-to-peer, no servers or accounts." />
+  <meta name="theme-color" content="#070b07" />
+  <title>PVP Tournier — Minecraft PvP 1v1 Tournament</title>
+  <meta name="description" content="A Minecraft PvP 1v1 tournament for two players. Draft gamemodes, pick &amp; ban, fight each round and crown a champion — directly peer-to-peer." />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f130a'/%3E%3Cpath d='M18 46l6-2 22-22 3-7-7 3-22 22-2 6z' fill='none' stroke='%23b3c76f' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M36 18l10 10' stroke='%23b3c76f' stroke-width='3'/%3E%3C/svg%3E" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b110a'/%3E%3Cpath d='M18 46l6-2 22-22 3-7-7 3-22 22-2 6z' fill='none' stroke='%237ed957' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M36 18l10 10' stroke='%237ed957' stroke-width='3'/%3E%3C/svg%3E" />
 </head>
 <body>
   <div class="bg-layer" aria-hidden="true">
@@ -33,6 +33,7 @@
           </svg>
         </span>
         <span class="brand-text">PVP <em>TOURNIER</em></span>
+        <span class="brand-tag">1v1</span>
       </div>
 
       <div class="topbar-right">
@@ -40,7 +41,7 @@
           <i class="net-dot" aria-hidden="true"></i>
           <span id="netLabel">Standby</span>
         </span>
-        <span class="version" aria-hidden="true">v1.0</span>
+        <span class="version" aria-hidden="true">MC · 1.21</span>
       </div>
     </div>
   </header>
@@ -52,30 +53,66 @@
       <div class="lobby">
 
         <div class="hero">
-          <p class="eyebrow"><span class="eyebrow-line"></span>Minecraft · 1v1 · Peer-to-peer<span class="eyebrow-line"></span></p>
+          <p class="eyebrow"><span class="eyebrow-line"></span><b>Minecraft PVP</b><span class="eyebrow-sep">·</span>1v1 tournament<span class="eyebrow-line"></span></p>
           <h1 class="hero-title" id="heroTitle">
             <span class="t-outline">PVP</span>
             <span class="t-fill">Tournier</span>
           </h1>
+
+          <div class="hero-chips" aria-label="Tournament format">
+            <span class="hero-chip hero-chip-mc"><i class="mc-block" aria-hidden="true"></i>Minecraft PvP</span>
+            <span class="hero-chip hero-chip-vs">1v1</span>
+            <span class="hero-chip">Pick &amp; ban</span>
+            <span class="hero-chip">FT2 · FT3 · FT5</span>
+          </div>
+
+          <div class="mode-deck">
+            <div class="mode-deck-head">
+              <span class="mode-deck-title">Gamemode pool</span>
+              <span class="mode-deck-count" id="heroModeCount">11 modes</span>
+            </div>
+            <div class="mode-ribbon" id="heroModeRibbon"></div>
+          </div>
         </div>
 
         <div class="lobby-card panel">
           <div class="lobby-card-head">
-            <span class="label">Player uplink</span>
+            <span class="label">Match setup · 1v1</span>
             <span class="link-state" id="linkState"><i></i><span>Not connected</span></span>
           </div>
 
-          <div class="identity-row">
-            <div class="avatar avatar-lg" id="lobbyAvatar">
-              <img id="lobbyFace" alt="Minecraft skin face" width="72" height="72" />
-            </div>
-            <div class="identity-main">
-              <label class="label" for="usernameInput">Minecraft username</label>
-              <div class="join-row">
-                <input id="usernameInput" class="input" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="16" placeholder="e.g. Notch" aria-describedby="identityHint" />
-                <button class="btn btn-primary" id="connectBtn" type="button">Enter Lobby</button>
+          <div class="matchup">
+            <div class="matchup-side is-you">
+              <div class="matchup-tag"><span class="p-dot" aria-hidden="true"></span>Player 1 <em>You</em></div>
+              <div class="identity-row">
+                <div class="avatar avatar-lg" id="lobbyAvatar">
+                  <img id="lobbyFace" alt="Minecraft skin face" width="72" height="72" />
+                </div>
+                <div class="identity-main">
+                  <label class="label" for="usernameInput">Minecraft username</label>
+                  <div class="join-row">
+                    <input id="usernameInput" class="input" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="16" placeholder="e.g. Notch" aria-describedby="identityHint" />
+                    <button class="btn btn-primary" id="connectBtn" type="button">Join Arena</button>
+                  </div>
+                  <p class="hint" id="identityHint">3–16 characters · letters, numbers and underscore.</p>
+                </div>
               </div>
-              <p class="hint" id="identityHint">3–16 characters · letters, numbers and underscore.</p>
+            </div>
+
+            <div class="matchup-vs" aria-hidden="true">
+              <span class="matchup-vs-text">VS</span>
+              <span class="matchup-vs-sub">1v1</span>
+            </div>
+
+            <div class="matchup-side is-rival">
+              <div class="matchup-tag"><span class="p-dot" aria-hidden="true"></span>Player 2 <em>Rival</em></div>
+              <div class="rival-slot">
+                <span class="rival-face" aria-hidden="true">?</span>
+                <span class="rival-copy">
+                  <strong>Awaiting challenger</strong>
+                  <small>Send a duel request to start</small>
+                </span>
+              </div>
             </div>
           </div>
 
@@ -114,18 +151,18 @@
           <p class="micro" id="lobbyMicro">Both players need this page open in their browser to connect.</p>
         </div>
 
-        <div class="steps">
+        <div class="steps" aria-label="How the tournament works">
           <div class="step">
             <span class="step-num">01</span>
-            <div><strong>Connect</strong><p>Enter your Minecraft name. Your opponent does the same.</p></div>
+            <strong>Connect</strong>
           </div>
           <div class="step">
             <span class="step-num">02</span>
-            <div><strong>Draft</strong><p>Ban and pick gamemodes on a live shared board.</p></div>
+            <strong>Draft</strong>
           </div>
           <div class="step">
             <span class="step-num">03</span>
-            <div><strong>Duel</strong><p>Play each mode. Both players confirm every round.</p></div>
+            <strong>Fight</strong>
           </div>
         </div>
 
