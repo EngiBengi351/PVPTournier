@@ -1,5 +1,5 @@
 /*
- * PVP Tournier — app shell, PeerJS transport and UI rendering.
+ * PVPtournament — app shell, PeerJS transport and UI rendering.
  * The pure draft/match rules live in logic.js.
  */
 (function () {
@@ -15,13 +15,11 @@
     'diapot',
     'nethpot',
     'diasmp',
-    'cart',
-    'spearmace',
-    'elytra-mace',
     'uhc',
-    'smp',
-    'vanilla'
+    'smp'
   ];
+  const DECIDER_ANIM_MS = 5200;
+  const DECIDER_ANIM_REDUCED_MS = 1000;
 
   const FALLBACK_FACE =
     'data:image/svg+xml;charset=utf-8,' +
@@ -88,6 +86,10 @@
     sendingDuel: false,
     duelDraft: null,
     confettiKey: '',
+    deciderKey: '',
+    deciderTimer: null,
+    deciderArmed: false,
+    deciderStart: 0,
     faceTimer: null
   };
 
@@ -232,7 +234,7 @@
       '<div class="modal ' + (options.size ? 'modal-' + options.size : '') + '" role="dialog" aria-modal="true" aria-labelledby="modalTitle">' +
         '<div class="modal-head">' +
           '<div>' +
-            '<div class="modal-eyebrow">' + esc(options.eyebrow || 'PVP Tournier') + '</div>' +
+            '<div class="modal-eyebrow">' + esc(options.eyebrow || 'PVPtournament') + '</div>' +
             '<h2 class="modal-title" id="modalTitle">' + esc(options.title || '') + '</h2>' +
           '</div>' +
           (S.modalDismissible ? '<button class="modal-x" type="button" data-close aria-label="Close dialog">✕</button>' : '') +
@@ -385,6 +387,9 @@
       });
     }
 
+    const readyBtn = $('#readyBtn');
+    if (readyBtn) readyBtn.addEventListener('click', pressReady);
+
     const modalRoot = $('#modalRoot');
     if (modalRoot) modalRoot.addEventListener('click', onModalClick);
 
@@ -396,7 +401,18 @@
       'error',
       function (event) {
         const img = event.target;
-        if (!img || img.tagName !== 'IMG' || img.dataset.skin === undefined) return;
+        if (!img || img.tagName !== 'IMG') return;
+
+        if (img.dataset.mark === '1') {
+          const mark = img.parentElement;
+          if (mark && mark.classList && !mark.classList.contains('is-fallback')) {
+            mark.classList.add('is-fallback');
+            img.remove();
+          }
+          return;
+        }
+
+        if (img.dataset.skin === undefined) return;
         if (img.dataset.failed === '1') return;
         img.dataset.failed = '1';
         img.src = img.dataset.kind === 'full' ? FALLBACK_FULL : FALLBACK_FACE;
@@ -480,7 +496,7 @@
     }).join('');
 
     const count = $('#heroModeCount');
-    if (count) count.textContent = L.KITS.length + ' modes';
+    if (count) count.textContent = L.POOL_SIZE + '-kit pool';
   }
 
   function renderLobby() {
@@ -570,41 +586,28 @@
     }
   }
 
-  function focusUsername() {
-    const input = $('#usernameInput');
-    if (!input) return;
-    if (!S.online) input.focus();
-  }
-
-  function updateFaceImg(img, name) {
-    if (!img) return;
-    const clean = String(name || '').trim();
-    const valid = clean && !L.validateUsername(clean);
-    const desired = valid ? faceUrl(clean) : FALLBACK_FACE;
-    if (img.getAttribute('src') === desired) return;
-    img.dataset.skin = clean;
-    img.dataset.failed = '';
-    img.src = desired;
-    img.alt = valid ? clean + ' skin' : 'Skin preview';
-  }
-
   function loadDraftRules() {
     try {
       const raw = JSON.parse(localStorage.getItem(LS_RULES) || 'null');
       if (raw && Array.isArray(raw.pool)) {
-        raw.pool = raw.pool.map(function (id) {
-          return id === 'mace' ? 'elytra-mace' : id;
+        const pool = [];
+        raw.pool.forEach(function (id) {
+          const clean = id === 'mace' ? 'elytra-mace' : id;
+          if (L.KIT_MAP.has(clean) && pool.indexOf(clean) === -1 && pool.length < L.POOL_SIZE) {
+            pool.push(clean);
+          }
         });
+        DEFAULT_POOL.forEach(function (id) {
+          if (pool.length < L.POOL_SIZE && pool.indexOf(id) === -1) pool.push(id);
+        });
+        const normal = L.normalizeRules({ pool: pool, order: raw.order, firstBan: raw.firstBan, firstPick: raw.firstPick });
+        if (normal.ok) return normal.rules;
       }
-      const normal = raw ? L.normalizeRules(raw) : null;
-      if (normal && normal.ok) return normal.rules;
     } catch (err) {
       /* ignore broken storage */
     }
     return {
       pool: DEFAULT_POOL.slice(),
-      format: 3,
-      banCount: 1,
       order: 'alternate',
       firstBan: 'p1',
       firstPick: 'p1'
@@ -774,6 +777,26 @@
     }
   }
 
+  function resetDecider() {
+    if (S.deciderTimer) clearTimeout(S.deciderTimer);
+    S.deciderTimer = null;
+    S.deciderArmed = false;
+    S.deciderKey = '';
+    S.deciderStart = 0;
+  }
+
+  function prefersReducedMotion() {
+    try {
+      return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function deciderDuration() {
+    return prefersReducedMotion() ? DECIDER_ANIM_REDUCED_MS : DECIDER_ANIM_MS;
+  }
+
   function handlePeerError(err, peer) {
     const type = err && err.type;
 
@@ -848,7 +871,7 @@
       return;
     }
 
-    console.warn('[PVP Tournier] PeerJS error', err);
+    console.warn('[PVPtournament] PeerJS error', err);
   }
 
   function scheduleReconnect(peer) {
@@ -1126,6 +1149,7 @@
       S.localVote = null;
       S.awaitingState = false;
       S.confettiKey = '';
+      resetDecider();
       S.game = L.createGame({
         id: req.id,
         rules: req.rules,
@@ -1363,38 +1387,23 @@
       '</div>' +
 
       '<div class="field">' +
-        '<div class="field-head"><span class="label">Gamemode pool</span>' +
+        '<div class="field-head"><span class="label">Gamemode pool · exactly ' + L.POOL_SIZE + '</span>' +
         '<span class="counter" id="poolCount">0 selected</span></div>' +
         '<div class="pool-grid" id="poolGrid">' + poolTiles + '</div>' +
+        '<p class="hint">The single mode left after bans and picks becomes the decider.</p>' +
+      '</div>' +
+
+      '<div class="fixed-rules">' +
+        '<span class="fixed-rule"><b>1</b> ban each</span>' +
+        '<span class="fixed-rule"><b>2</b> picks each</span>' +
+        '<span class="fixed-rule"><b>4</b> rounds</span>' +
+        '<span class="fixed-rule is-decider"><b>7th</b> mode decides a tie</span>' +
       '</div>' +
 
       '<div class="rule-grid">' +
-        segGroup('format', 'Round format', [
-          { v: 2, t: 'FT2', s: 'first to 2' },
-          { v: 3, t: 'FT3', s: 'first to 3' },
-          { v: 5, t: 'FT5', s: 'first to 5' }
-        ], draft.format) +
-        segGroup('banCount', 'Bans per player', [
-          { v: 0, t: '0' },
-          { v: 1, t: '1' },
-          { v: 2, t: '2' },
-          { v: 3, t: '3' }
-        ], draft.banCount) +
-      '</div>' +
-      '<p class="hint ban-hint" id="banHint"></p>' +
-
-      '<div class="rule-grid">' +
-        segGroup('order', 'Pick order', [
-          { v: 'alternate', t: 'Alternate', s: 'A · B · A · B' },
-          { v: 'snake', t: 'Snake', s: 'A · B · B · A' }
-        ], draft.order) +
-        segGroup('firstBan', 'First ban', [
-          { v: 'p1', t: 'You' },
-          { v: 'p2', t: 'Rival' }
-        ], draft.firstBan) +
-        segGroup('firstPick', 'First pick', [
-          { v: 'p1', t: 'You' },
-          { v: 'p2', t: 'Rival' }
+        segGroup('firstPick', 'Who starts (bans & picks first)', [
+          { v: 'p1', t: 'You', s: 'you ban & pick first' },
+          { v: 'p2', t: 'Rival', s: 'rival bans & picks first' }
         ], draft.firstPick) +
       '</div>' +
 
@@ -1415,7 +1424,7 @@
 
     const seq = $('#seqList');
     if (seq) {
-      seq.innerHTML = steps
+      let chips = steps
         .map(function (step) {
           return (
             '<span class="seq-chip ' + (step.kind === 'ban' ? 'is-ban ' : '') +
@@ -1426,25 +1435,28 @@
           );
         })
         .join('<span class="seq-arrow" aria-hidden="true">›</span>');
+
+      if (check.ok) {
+        chips +=
+          '<span class="seq-arrow" aria-hidden="true">›</span>' +
+          '<span class="seq-chip is-decider"><b>DECIDER</b>Auto</span>';
+      }
+      seq.innerHTML = chips;
     }
 
     const poolCount = $('#poolCount');
     if (poolCount) {
-      poolCount.textContent = draft.pool.length + ' selected';
+      poolCount.textContent = draft.pool.length + ' / ' + L.POOL_SIZE + ' selected';
       poolCount.classList.toggle('is-bad', !check.ok);
     }
 
     const seqCount = $('#seqCount');
     if (seqCount) {
       if (check.ok) {
-        seqCount.textContent = steps.length + ' steps · ' + check.needed + ' modes needed';
+        seqCount.textContent = steps.length + ' steps + 1 decider';
         seqCount.classList.remove('is-bad');
       } else {
-        const needed = L.requiredKits({
-          format: Number(draft.format) || 3,
-          banCount: Number(draft.banCount) || 0
-        });
-        seqCount.textContent = needed + ' needed · ' + draft.pool.length + ' selected';
+        seqCount.textContent = draft.pool.length + ' / ' + L.POOL_SIZE + ' modes in the pool';
         seqCount.classList.add('is-bad');
       }
     }
@@ -1478,46 +1490,29 @@
 
   function syncRuleControls() {
     const draft = S.duelDraft;
-    const maxBans = L.maxBansFor(draft.pool.length, draft.format);
-    if (draft.banCount > maxBans) draft.banCount = maxBans;
 
     $$('.seg', $('#modalRoot')).forEach(function (button) {
       const group = button.dataset.group;
       if (!group) return;
-      const isNumber = group === 'format' || group === 'banCount';
-      const value = isNumber ? Number(button.dataset.value) : button.dataset.value;
-      const on = String(value) === String(draft[group]);
+      const on = String(button.dataset.value) === String(draft[group]);
       button.classList.toggle('is-on', on);
       button.setAttribute('aria-pressed', String(on));
-
-      if (group === 'banCount') {
-        const disabled = value > maxBans;
-        button.disabled = disabled;
-        button.setAttribute('aria-disabled', String(disabled));
-      }
     });
 
-    const hint = $('#banHint');
-    if (hint) {
-      if (maxBans === 0) {
-        hint.textContent =
-          'FT' + draft.format + ' needs ' + L.picksFor(draft.format) + ' of ' +
-          draft.pool.length + ' modes, so bans are locked at 0.';
-      } else if (maxBans === 1) {
-        hint.textContent = 'This pool allows 1 ban per player at FT' + draft.format + '.';
-      } else {
-        hint.textContent = 'This pool allows up to ' + maxBans + ' bans per player at FT' + draft.format + '.';
-      }
+    const poolCount = $('#poolCount');
+    if (poolCount) {
+      poolCount.textContent = draft.pool.length + ' / ' + L.POOL_SIZE + ' selected';
+      poolCount.classList.toggle('is-bad', draft.pool.length !== L.POOL_SIZE);
     }
   }
 
   function setDraftRule(group, value) {
     const draft = S.duelDraft;
-    if (group === 'format') draft.format = Number(value);
-    else if (group === 'banCount') draft.banCount = Number(value);
-    else if (group === 'order') draft.order = value === 'snake' ? 'snake' : 'alternate';
-    else if (group === 'firstBan') draft.firstBan = value === 'p2' ? 'p2' : 'p1';
-    else if (group === 'firstPick') draft.firstPick = value === 'p2' ? 'p2' : 'p1';
+    if (group === 'firstPick') {
+      draft.firstPick = value === 'p2' ? 'p2' : 'p1';
+      draft.firstBan = draft.firstPick;
+      draft.order = 'alternate';
+    }
 
     syncRuleControls();
     updateSendPreview();
@@ -1526,8 +1521,15 @@
   function togglePoolKit(id, tile) {
     const pool = S.duelDraft.pool;
     const index = pool.indexOf(id);
-    if (index >= 0) pool.splice(index, 1);
-    else pool.push(id);
+    if (index >= 0) {
+      pool.splice(index, 1);
+    } else {
+      if (pool.length >= L.POOL_SIZE) {
+        toast('The pool already holds ' + L.POOL_SIZE + ' modes — deselect one first.', 'warn', 3200);
+        return;
+      }
+      pool.push(id);
+    }
 
     if (tile) {
       const on = index < 0;
@@ -1577,7 +1579,7 @@
       conn = S.peer.connect(peerId, {
         reliable: true,
         serialization: 'json',
-        metadata: { app: 'pvp-tournier', from: S.username }
+        metadata: { app: 'pvptournament', from: S.username }
       });
     } catch (err) {
       S.sendingDuel = false;
@@ -1593,10 +1595,8 @@
 
     const rules = {
       pool: S.duelDraft.pool.slice(),
-      format: S.duelDraft.format,
-      banCount: S.duelDraft.banCount,
-      order: S.duelDraft.order,
-      firstBan: S.duelDraft.firstBan,
+      order: 'alternate',
+      firstBan: S.duelDraft.firstPick,
       firstPick: S.duelDraft.firstPick
     };
 
@@ -1685,11 +1685,11 @@
   }
 
   function rulesSummary(rules, viewer) {
-    const bans = rules.banCount === 1 ? '1 ban' : rules.banCount + ' bans';
-    const first = rules.firstBan === viewer ? 'you ban first' : 'rival bans first';
+    const starter = rules.firstPick === 'p2' ? 'p2' : 'p1';
+    const who = starter === viewer ? 'you start' : 'rival starts';
     return (
-      'FT' + rules.format + ' · ' + bans + ' each · ' + L.picksFor(rules.format) +
-      ' picks · ' + first + ' · ' + rules.order + ' · ' + rules.pool.length + '-mode pool'
+      L.POOL_SIZE + '-mode pool · 1 ban each · 2 picks each · ' + who +
+      ' (ban + pick) · 7th mode decides a tie'
     );
   }
 
@@ -1802,6 +1802,7 @@
     S.awaitingState = true;
     S.stateSynced = false;
     S.confettiKey = '';
+    resetDecider();
     S.game = L.createGame({
       id: req.id,
       rules: req.rules,
@@ -1956,7 +1957,7 @@
       renderLobby();
       return;
     }
-    if (S.game.phase === 'draft') {
+    if (S.game.phase === 'draft' || S.game.phase === 'reveal') {
       showScreen('draft');
       renderDraft();
     } else if (S.game.phase === 'match') {
@@ -2017,18 +2018,19 @@
 
   function renderDraft() {
     const game = S.game;
-    if (!game || game.phase !== 'draft') return;
+    if (!game || (game.phase !== 'draft' && game.phase !== 'reveal')) return;
 
     const me = S.role;
     const active = L.activeStepIndex(game);
     const activeStep = active >= 0 ? game.steps[active] : null;
     const isMyTurn = !!activeStep && activeStep.owner === me;
+    const revealed = game.phase === 'reveal';
 
     fillPlayerChip($('#draftP1'), game.players.p1.username, 'p1');
     fillPlayerChip($('#draftP2'), game.players.p2.username, 'p2');
 
     const formatChip = $('#formatChip');
-    if (formatChip) formatChip.textContent = 'FT' + game.rules.format;
+    if (formatChip) formatChip.textContent = L.POOL_SIZE + ' KITS';
 
     const turnPill = $('#turnPill');
     const turnText = $('#turnText');
@@ -2036,7 +2038,15 @@
       let classes = 'turn-pill';
       let label = 'Draft complete';
 
-      if (activeStep) {
+      if (revealed) {
+        if (game.ready.p1 && game.ready.p2) {
+          classes += ' is-mine';
+          label = 'Both ready — round 1 starts now';
+        } else {
+          classes += ' is-theirs';
+          label = 'Decider announced · ready up';
+        }
+      } else if (activeStep) {
         if (S.awaitingState) {
           label = 'Syncing draft…';
         } else if (S.pending && isMyTurn) {
@@ -2064,18 +2074,131 @@
     const meta = $('#draftMeta');
     if (meta) {
       meta.innerHTML =
-        '<span class="chip"><b>FT' + game.rules.format + '</b></span>' +
-        '<span class="chip">' + game.rules.banCount + ' ban each</span>' +
-        '<span class="chip">' + L.picksFor(game.rules.format) + ' picks</span>' +
-        '<span class="chip">' + game.rules.order + ' order</span>' +
-        '<span class="chip">' + game.rules.pool.length + ' modes</span>';
+        '<span class="chip"><b>1</b> ban each</span>' +
+        '<span class="chip"><b>2</b> picks each</span>' +
+        '<span class="chip">' + L.TOTAL_PICKS + ' rounds</span>' +
+        '<span class="chip">' + (game.rules.firstPick === S.role ? 'You start' : 'Rival starts') + '</span>' +
+        '<span class="chip">7th mode decides a tie</span>';
     }
 
+    if (revealed) armDeciderAnimation();
+
     const body = $('#draftBody');
-    if (body) {
-      body.innerHTML =
-        renderSlotGroup('ban', active, isMyTurn) +
-        renderSlotGroup('pick', active, isMyTurn);
+    if (body) body.innerHTML = draftCardsHtml(active, isMyTurn);
+
+    renderReadyGate(game, revealed);
+  }
+
+  function slotMarkHtml(name, label) {
+    return (
+      '<span class="slot-mark" data-mark-label="' + esc(label) + '">' +
+        '<img src="icons/' + name + '.svg" alt="" data-mark="1" draggable="false" />' +
+      '</span>'
+    );
+  }
+
+  function draftCardsHtml(activeIndex, isMyTurn) {
+    const game = S.game;
+    const bans = [];
+    const picks = [];
+    let locked = 0;
+
+    game.steps.forEach(function (step, index) {
+      if (step.kit) locked += 1;
+      if (step.kind === 'ban') bans.push({ step: step, index: index });
+      else picks.push({ step: step, index: index });
+    });
+
+    const cards = bans
+      .map(function (item, i) {
+        return slotHtml(item.step, item.index, i, activeIndex, isMyTurn);
+      })
+      .concat(
+        picks.map(function (item, i) {
+          return slotHtml(item.step, item.index, i, activeIndex, isMyTurn);
+        })
+      )
+      .concat(deciderCardHtml());
+
+    return (
+      '<section class="phase-group">' +
+        '<div class="phase-head">' +
+          '<span class="phase-title">Ban &amp; pick order</span>' +
+          '<span class="phase-line"></span>' +
+          '<span class="phase-count">' + locked + ' / ' + game.steps.length +
+            ' locked · decider ' + (game.decider ? 'revealed' : 'hidden') + '</span>' +
+        '</div>' +
+        '<div class="slots is-row">' +
+          cards.join('') +
+        '</div>' +
+      '</section>'
+    );
+  }
+
+  function deciderCardHtml() {
+    const game = S.game;
+    const kit = game.decider ? L.KIT_MAP.get(game.decider) : null;
+    const animating = !!kit && deciderAnimating();
+
+    const classes = ['slot', 'is-decider'];
+    if (kit) classes.push('is-filled');
+    if (animating) classes.push('is-announcing');
+
+    const elapsed = animating && S.deciderStart ? Math.max(0, Date.now() - S.deciderStart) : 0;
+    const style = animating ? ' style="--dly:-' + elapsed + 'ms"' : '';
+
+    const label = 'Decider · ' + (kit ? kit.name : 'hidden until the draft ends');
+
+    return (
+      '<div class="' + classes.join(' ') + '"' + style +
+      ' role="note" aria-label="' + esc(label) + '">' +
+        '<span class="slot-top">' +
+          '<span class="slot-kind">Decider</span>' +
+          '<span class="slot-tags">' +
+            (kit ? slotBadgeHtml('decider') : '') +
+            '<span class="slot-owner decider">7th</span>' +
+          '</span>' +
+        '</span>' +
+        '<span class="slot-body">' +
+          (kit
+            ? '<span class="slot-kit">' + kitIcon(kit, 'xl') +
+              '<span class="kit-name">' + esc(kit.name) + '</span></span>'
+            : slotMarkHtml('decider', 'DECIDER')) +
+        '</span>' +
+        '<span class="slot-foot">' + (kit ? 'Only if it is 2–2' : 'Hidden until draft ends') + '</span>' +
+      '</div>'
+    );
+  }
+
+  function renderReadyGate(game, revealed) {
+    const box = $('#draftReady');
+    if (!box) return;
+    box.hidden = !revealed;
+    if (!revealed) return;
+
+    readyPillHtml($('#readyPillP1'), 'p1', game);
+    readyPillHtml($('#readyPillP2'), 'p2', game);
+
+    const animating = deciderAnimating();
+    const btn = $('#readyBtn');
+    if (btn) {
+      const meReady = !!game.ready[S.role];
+      btn.disabled = meReady || S.pending || S.awaitingState;
+      btn.textContent = meReady ? 'Ready ✓' : S.pending ? 'Syncing…' : 'Ready';
+      btn.classList.toggle('is-ready', meReady);
+    }
+
+    const hint = $('#deciderHint');
+    if (hint) {
+      hint.textContent = S.pending
+        ? 'Sending your ready signal…'
+        : game.ready.p1 && game.ready.p2
+          ? 'Both ready — round 1 starts now.'
+          : game.ready[S.role]
+            ? 'Waiting for your rival to ready up…'
+            : animating
+              ? 'The decider is being announced — you can ready up now.'
+              : 'Both players must press Ready before round 1 starts.';
     }
   }
 
@@ -2091,38 +2214,11 @@
       '</div>';
   }
 
-  function renderSlotGroup(kind, activeIndex, isMyTurn) {
-    const game = S.game;
-    const steps = game.steps
-      .map(function (step, index) {
-        return { step: step, index: index };
-      })
-      .filter(function (item) {
-        return item.step.kind === kind;
-      });
-
-    if (steps.length === 0) return '';
-
-    const locked = steps.filter(function (item) {
-      return !!item.step.kit;
-    }).length;
-
-    const cards = steps
-      .map(function (item, kindIndex) {
-        return slotHtml(item.step, item.index, kindIndex, activeIndex, isMyTurn);
-      })
-      .join('');
-
+  function slotBadgeHtml(name) {
     return (
-      '<section class="phase-group">' +
-        '<div class="phase-head">' +
-          '<span class="phase-title ' + (kind === 'ban' ? 'is-ban' : '') + '">' +
-          (kind === 'ban' ? 'Ban phase' : 'Pick phase') + '</span>' +
-          '<span class="phase-line"></span>' +
-          '<span class="phase-count">' + locked + ' / ' + steps.length + ' locked</span>' +
-        '</div>' +
-        '<div class="slots">' + cards + '</div>' +
-      '</section>'
+      '<span class="slot-badge" aria-hidden="true">' +
+        '<img src="icons/' + name + '.svg" alt="" data-mark="1" draggable="false" />' +
+      '</span>'
     );
   }
 
@@ -2155,13 +2251,16 @@
         '<span class="slot-top">' +
           '<span class="slot-kind">' + step.kind.toUpperCase() + ' ' +
           String(kindIndex + 1).padStart(2, '0') + '</span>' +
-          '<span class="slot-owner ' + step.owner + '">' + (mine ? 'You' : 'Rival') + '</span>' +
+          '<span class="slot-tags">' +
+            (kit ? slotBadgeHtml(step.kind === 'ban' ? 'ban' : 'pick') : '') +
+            '<span class="slot-owner ' + step.owner + '">' + (mine ? 'You' : 'Rival') + '</span>' +
+          '</span>' +
         '</span>' +
         '<span class="slot-body">' +
           (kit
-            ? '<span class="slot-kit">' + kitIcon(kit) +
+            ? '<span class="slot-kit">' + kitIcon(kit, 'card') +
               '<span class="kit-name">' + esc(kit.name) + '</span></span>'
-            : '<span class="slot-empty" aria-hidden="true">' + (isActive ? '+' : '·') + '</span>') +
+            : slotMarkHtml(step.kind === 'ban' ? 'ban' : 'pick', step.kind.toUpperCase())) +
         '</span>' +
         '<span class="slot-foot">' + foot + '</span>' +
       '</button>'
@@ -2301,6 +2400,64 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Decider reveal                                                     */
+  /* ------------------------------------------------------------------ */
+
+  function deciderAnimating() {
+    return !!S.deciderTimer;
+  }
+
+  function armDeciderAnimation() {
+    const game = S.game;
+    const key = game ? game.id + ':' + String(game.decider || '') : '';
+    if (S.deciderArmed && S.deciderKey === key) return;
+    S.deciderKey = key;
+    S.deciderArmed = true;
+    S.deciderStart = Date.now();
+    clearTimeout(S.deciderTimer);
+    S.deciderTimer = window.setTimeout(function () {
+      S.deciderTimer = null;
+      if (S.game && S.game.phase === 'reveal') renderDraft();
+    }, deciderDuration());
+  }
+
+  function readyPillHtml(el, role, game) {
+    if (!el) return;
+    const username = game.players[role].username;
+    const mine = S.role === role;
+    const ready = !!game.ready[role];
+    el.className = 'ready-pill ' + (role === 'p2' ? 'right' : '') + (ready ? ' is-ready' : '');
+    el.innerHTML =
+      avatarHtml(username, 'avatar-sm') +
+      '<span class="ready-copy">' +
+        '<span class="ready-name">' + esc(username) + '</span>' +
+        '<span class="ready-state">' + (ready ? 'Ready' : mine ? 'You must ready up' : 'Waiting…') + '</span>' +
+      '</span>' +
+      '<span class="ready-dot" aria-hidden="true"></span>';
+  }
+
+  function pressReady() {
+    const game = S.game;
+    if (!game || game.phase !== 'reveal') return;
+    if (S.pending || S.awaitingState || game.ready[S.role]) return;
+
+    if (S.isHost) {
+      const result = L.applyReady(game, S.role);
+      if (!result.ok) {
+        toast(result.error, 'error');
+        return;
+      }
+      commitHost(result);
+      return;
+    }
+
+    S.pending = true;
+    armPendingTimer();
+    renderDraft();
+    sendTo(S.conn, { t: 'action', v: 1, action: { type: 'ready' } });
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Match screen                                                       */
   /* ------------------------------------------------------------------ */
 
@@ -2309,16 +2466,25 @@
     if (!game) return;
 
     const picks = L.pickedSteps(game);
-    const timeline = picks
-      .map(function (step, index) {
-        const kit = L.KIT_MAP.get(step.kit);
+    const deciderKit = game.decider ? L.KIT_MAP.get(game.decider) : null;
+    const items = picks.map(function (step, index) {
+      return { kit: step.kit, index: index, decider: false };
+    });
+    if (deciderKit) {
+      items.push({ kit: game.decider, index: L.DECIDER_ROUND, decider: true });
+    }
+
+    const timeline = items
+      .map(function (item) {
+        const kit = L.KIT_MAP.get(item.kit);
         let classes = 'tl-item';
-        if (index < game.round) classes += ' is-done';
-        if (index === game.round) classes += ' is-current';
+        if (item.index < game.round) classes += ' is-done';
+        if (item.index === game.round) classes += ' is-current';
+        if (item.decider) classes += ' is-decider';
         return (
           '<span class="' + classes + '" title="' + esc(kit ? kit.name : 'Kit') + '">' +
             (kit ? kitIcon(kit) : '') +
-            '<span class="tl-label">R' + (index + 1) + '</span>' +
+            '<span class="tl-label">' + (item.decider ? 'TB' : 'R' + (item.index + 1)) + '</span>' +
           '</span>'
         );
       })
@@ -2330,8 +2496,8 @@
     const matchRules = $('#matchRules');
     if (matchRules) {
       matchRules.textContent =
-        'FT' + game.rules.format + ' · ' + game.rules.banCount + ' ban each · ' +
-        game.rules.pool.length + '-mode pool';
+        L.POOL_SIZE + '-mode pool · 1 ban each · 2 picks each · ' +
+        (game.decider ? 'decider: ' + (deciderKit ? deciderKit.name : '—') : 'decider pending');
     }
 
     const scoreP1 = $('#scoreP1');
@@ -2351,26 +2517,36 @@
         '<span class="score-value">' + game.scores.p2 + '</span>';
     }
 
+    const deciderRound = L.isDeciderRound(game);
     const roundNumber = $('#roundNumber');
-    if (roundNumber) roundNumber.textContent = String(game.round + 1);
+    if (roundNumber) roundNumber.textContent = deciderRound ? 'TB' : String(game.round + 1);
     const roundFormat = $('#roundFormat');
-    if (roundFormat) roundFormat.textContent = 'FIRST TO ' + game.rules.format;
+    if (roundFormat) {
+      roundFormat.textContent = deciderRound
+        ? 'DECIDER · TIE-BREAK'
+        : 'ROUND ' + (game.round + 1) + ' OF ' + L.TOTAL_ROUNDS;
+    }
 
     const kitId = L.currentKit(game);
     const kit = kitId ? L.KIT_MAP.get(kitId) : null;
     const current = $('#currentKit');
     if (current) {
+      current.classList.toggle('is-decider', deciderRound);
       if (kit) {
         current.innerHTML =
           '<span class="ck-watermark" style="--kc:' + kit.color + '" aria-hidden="true">' +
             kitArt(kit) +
           '</span>' +
-          '<span class="ck-kicker">Now playing</span>' +
+          '<span class="ck-kicker">' + (deciderRound ? 'Decider · tie-breaker' : 'Now playing') + '</span>' +
           '<span class="ck-icon">' + kitIcon(kit, 'xl') + '</span>' +
           '<span class="ck-name">' + esc(kit.name) + '</span>' +
           '<span class="ck-tag">' + esc(kit.tag) + '</span>' +
-          '<span class="ck-round">Round ' + (game.round + 1) + ' · first to ' +
-            game.rules.format + '</span>';
+          '<span class="ck-round">' +
+            (deciderRound
+              ? 'Tie at ' + game.scores.p1 + '–' + game.scores.p2 + ' · one round decides it'
+              : 'Round ' + (game.round + 1) + ' of ' + L.TOTAL_ROUNDS +
+                ' · tied ' + game.scores.p1 + '–' + game.scores.p2) +
+          '</span>';
       } else {
         current.innerHTML = '<span class="ck-kicker">Waiting for the draft</span>';
       }
@@ -2481,16 +2657,31 @@
       return;
     }
 
+    if (event.type === 'ready') {
+      if (event.role !== S.role) toast('Rival is ready.', 'info', 2600);
+      return;
+    }
+
+    if (event.type === 'round-start') {
+      toast('Both players ready — round 1 begins.', 'success', 4200);
+      return;
+    }
+
     if (event.type === 'round') {
       const game = S.game;
       const name = game.players[event.winner].username;
       flashRound(name, event.scores);
       toast(
-        name + ' takes round ' + (event.round + 1) + ' · ' +
+        name + ' takes ' + (event.decider ? 'the decider' : 'round ' + (event.round + 1)) + ' · ' +
         event.scores.p1 + '–' + event.scores.p2,
         'success',
         4800
       );
+      if (event.tiebreak) {
+        window.setTimeout(function () {
+          toast('Tied ' + event.scores.p1 + '–' + event.scores.p2 + ' — the decider decides it.', 'warn', 6000);
+        }, 700);
+      }
       if (event.matchOver) {
         window.setTimeout(function () {
           toast(name + ' wins the duel!', 'success', 6000);
@@ -2558,9 +2749,9 @@
         .map(function (item) {
           const kit = L.KIT_MAP.get(item.kit);
           return (
-            '<span class="recap-item ' + item.winner + '">' +
+            '<span class="recap-item ' + item.winner + (item.decider ? ' is-decider' : '') + '">' +
               (kit ? kitIcon(kit) : '') +
-              '<b>R' + (item.round + 1) + '</b>' +
+              '<b>' + (item.decider ? 'TB' : 'R' + (item.round + 1)) + '</b>' +
               '<em>' + esc(game.players[item.winner].username) + '</em>' +
             '</span>'
           );
@@ -2658,6 +2849,7 @@
     S.incoming = [];
     S.sent = [];
     clearTimers();
+    resetDecider();
     closeModal(true);
 
     if (conn) {

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PVP Tournier — Minecraft PvP tournament theme
+   PVPtournament — Minecraft PvP tournament theme
    ========================================================================== */
 
 :root {
@@ -2929,6 +2929,496 @@ body.modal-open {
 }
 
 /* ==========================================================================
+   Decider reveal + fixed draft rules
+   ========================================================================== */
+
+.fixed-rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.55rem 0 0.35rem;
+}
+
+.fixed-rule {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  padding: 0.28rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--dim);
+  font-size: 0.64rem;
+  letter-spacing: 0.02em;
+}
+
+.fixed-rule b {
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.fixed-rule.is-decider {
+  border-color: rgba(242, 201, 76, 0.4);
+  background: rgba(242, 201, 76, 0.08);
+  color: #f0dfa8;
+}
+
+.fixed-rule.is-decider b {
+  color: var(--gold);
+}
+
+.seq-chip.is-decider {
+  border-color: rgba(242, 201, 76, 0.5);
+  background: rgba(242, 201, 76, 0.1);
+}
+
+.seq-chip.is-decider b {
+  color: var(--gold);
+}
+
+.kit-ic.card {
+  width: 64px;
+  height: 64px;
+  border-radius: 4px;
+}
+
+.kit-ic.card .kit-art {
+  width: 88%;
+  height: 88%;
+}
+
+/* Seven big draft cards in one row */
+
+.slots.is-row {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.slots.is-row .slot {
+  min-height: 212px;
+  padding: 0.7rem 0.6rem;
+}
+
+.slot-tags {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+.slot-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+}
+
+.slot-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0.8;
+}
+
+.slot-badge.is-fallback {
+  display: none;
+}
+
+.slot-mark {
+  display: grid;
+  place-items: center;
+  width: clamp(44px, 4.6vw, 60px);
+  height: clamp(44px, 4.6vw, 60px);
+  color: var(--faint);
+}
+
+.slot-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0.8;
+  filter: grayscale(0.4) drop-shadow(0 6px 12px rgba(0, 0, 0, 0.45));
+  transition: opacity 0.18s, filter 0.18s;
+}
+
+.slot-mark.is-fallback::after {
+  content: attr(data-mark-label);
+  font-family: var(--font-display);
+  font-size: 0.56rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--faint);
+}
+
+.slot.is-active .slot-mark img {
+  opacity: 1;
+  filter: none;
+}
+
+.slot.is-active.is-mine .slot-mark img {
+  animation: markPulse 1.8s ease-in-out infinite;
+}
+
+.slot.is-decider {
+  border-style: dashed;
+  border-color: rgba(242, 201, 76, 0.32);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(242, 201, 76, 0.08), transparent 70%),
+    linear-gradient(165deg, rgba(28, 34, 21, 0.75), rgba(15, 19, 11, 0.9));
+}
+
+.slot.is-decider .slot-kind,
+.slot.is-decider .slot-owner.decider {
+  color: var(--gold);
+}
+
+.slot.is-decider .slot-mark img {
+  opacity: 1;
+  filter: drop-shadow(0 0 14px rgba(242, 201, 76, 0.45));
+}
+
+.slot.is-decider.is-filled {
+  border-style: solid;
+  border-color: rgba(242, 201, 76, 0.55);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(242, 201, 76, 0.14), transparent 72%),
+    linear-gradient(165deg, rgba(34, 31, 16, 0.9), rgba(15, 17, 9, 0.95));
+}
+
+.slot.is-decider.is-filled .kit-ic {
+  filter: drop-shadow(0 0 16px rgba(242, 201, 76, 0.35));
+}
+
+.slot.is-decider.is-announcing {
+  z-index: 2;
+  overflow: visible;
+  animation: deciderCard 5.2s cubic-bezier(0.16, 0.84, 0.3, 1) both;
+  animation-delay: var(--dly, 0ms);
+}
+
+.slot.is-decider.is-announcing .kit-ic {
+  animation: deciderCardArt 5.2s cubic-bezier(0.16, 0.84, 0.3, 1) both;
+  animation-delay: var(--dly, 0ms);
+}
+
+.slot.is-decider.is-announcing::before {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border: 2px solid rgba(242, 201, 76, 0.55);
+  border-radius: 7px;
+  pointer-events: none;
+  animation: deciderCardRing 5.2s ease-out both;
+  animation-delay: var(--dly, 0ms);
+}
+
+/* Ready-up gate under the draft cards */
+
+.draft-ready {
+  margin-top: 1.15rem;
+  padding: 1rem 1rem 1.15rem;
+  border: 1px solid rgba(242, 201, 76, 0.28);
+  border-radius: 4px;
+  background:
+    radial-gradient(90% 140% at 50% 0%, rgba(242, 201, 76, 0.08), transparent 72%),
+    linear-gradient(165deg, rgba(23, 35, 21, 0.96), rgba(11, 17, 10, 0.98));
+  box-shadow: inset 0 0 0 1px rgba(242, 201, 76, 0.05);
+  text-align: center;
+}
+
+.draft-ready[hidden] {
+  display: none;
+}
+
+.draft-ready-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.draft-ready-kicker {
+  color: var(--gold);
+  font-family: var(--font-pixel);
+  font-size: 0.66rem;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+}
+
+.draft-ready-sub {
+  color: var(--faint);
+  font-size: 0.68rem;
+}
+
+.draft-ready-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.draft-ready .micro {
+  margin: 0.65rem 0 0;
+}
+
+.ready-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 168px;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.02);
+  text-align: left;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.ready-pill.right {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.ready-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ready-name {
+  overflow: hidden;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ready-state {
+  color: var(--faint);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ready-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--line-2);
+}
+
+.ready-pill.is-ready {
+  border-color: rgba(126, 217, 87, 0.5);
+  background: rgba(126, 217, 87, 0.08);
+}
+
+.ready-pill.is-ready .ready-state {
+  color: var(--olive);
+}
+
+.ready-pill.is-ready .ready-dot {
+  background: var(--olive);
+  box-shadow: 0 0 12px rgba(126, 217, 87, 0.8);
+}
+
+#readyBtn.is-ready {
+  border-color: rgba(126, 217, 87, 0.5);
+  color: var(--olive);
+}
+
+.tl-item.is-decider {
+  border-style: dashed;
+  border-color: rgba(242, 201, 76, 0.35);
+}
+
+.tl-item.is-decider.is-current {
+  border-style: solid;
+  border-color: var(--gold);
+  background: rgba(242, 201, 76, 0.1);
+  box-shadow: 0 0 26px -10px rgba(242, 201, 76, 0.7);
+}
+
+.tl-item.is-decider.is-current .tl-label {
+  color: var(--gold);
+}
+
+.current-kit.is-decider {
+  border-color: rgba(242, 201, 76, 0.45);
+  box-shadow:
+    inset 0 0 0 1px rgba(242, 201, 76, 0.06),
+    0 26px 70px -50px rgba(242, 201, 76, 0.9);
+}
+
+.current-kit.is-decider .ck-kicker,
+.current-kit.is-decider .ck-round {
+  color: var(--gold);
+}
+
+.recap-item.is-decider {
+  border-color: rgba(242, 201, 76, 0.5);
+  background: rgba(242, 201, 76, 0.07);
+}
+
+.recap-item.is-decider b {
+  color: var(--gold);
+}
+
+@keyframes markPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+@keyframes deciderCard {
+  0% {
+    transform: scale(0.9);
+    box-shadow: 0 0 0 0 rgba(242, 201, 76, 0);
+  }
+  8% {
+    transform: scale(1.03) rotate(-0.8deg);
+    box-shadow: 0 0 0 2px rgba(242, 201, 76, 0.3), 0 30px 80px -40px rgba(242, 201, 76, 0.9);
+  }
+  16% {
+    transform: scale(0.96);
+  }
+  30% {
+    transform: scale(1.16) rotate(0.9deg);
+    box-shadow:
+      0 0 0 4px rgba(242, 201, 76, 0.5),
+      0 40px 110px -30px rgba(242, 201, 76, 1);
+  }
+  46% {
+    transform: scale(1.04) rotate(-0.4deg);
+  }
+  62% {
+    transform: scale(1.11);
+  }
+  78% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(242, 201, 76, 0);
+  }
+}
+
+@keyframes deciderCardArt {
+  0%,
+  18% {
+    opacity: 0;
+    transform: scale(0.2) rotate(-22deg);
+    filter: blur(10px);
+  }
+  44% {
+    opacity: 1;
+    transform: scale(1.24) rotate(6deg);
+    filter: blur(0) drop-shadow(0 0 18px rgba(242, 201, 76, 0.7));
+  }
+  58% {
+    transform: scale(0.92) rotate(-2deg);
+  }
+  70% {
+    transform: scale(1.06) rotate(1deg);
+  }
+  82%,
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes deciderCardRing {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  18% {
+    opacity: 0.85;
+  }
+  65%,
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+@media (max-width: 900px) {
+  .slots.is-row {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 0.45rem;
+    scroll-snap-type: x proximity;
+    scrollbar-color: var(--line-2) transparent;
+  }
+
+  .slots.is-row .slot {
+    flex: 0 0 152px;
+    min-height: 196px;
+    scroll-snap-align: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slot.is-active.is-mine .slot-mark img {
+    animation: none;
+  }
+
+  .slot.is-decider.is-announcing,
+  .slot.is-decider.is-announcing .kit-ic,
+  .slot.is-decider.is-announcing::before {
+    animation-duration: 1s;
+    animation-iteration-count: 1;
+  }
+}
+
+@media (max-width: 600px) {
+  .slots.is-row .slot {
+    flex-basis: 134px;
+    min-height: 174px;
+    padding: 0.55rem;
+  }
+
+  .draft-ready-row {
+    flex-direction: column;
+  }
+
+  .ready-pill,
+  .ready-pill.right {
+    flex-direction: row;
+    width: 100%;
+    max-width: 320px;
+    text-align: left;
+  }
+
+  .ready-pill.right .ready-dot {
+    margin-left: auto;
+  }
+
+  #readyBtn {
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .fixed-rule {
+    font-size: 0.6rem;
+  }
+}
+
+/* ==========================================================================
    Toasts + overlays
    ========================================================================== */
 
@@ -3699,5 +4189,16 @@ body.modal-open {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+  }
+}
+
+/* The decider reveal is a one-off, meaningful cue: keep a short version even
+   when the OS asks for reduced motion, instead of removing it completely. */
+@media (prefers-reduced-motion: reduce) {
+  .slot.is-decider.is-announcing,
+  .slot.is-decider.is-announcing .kit-ic,
+  .slot.is-decider.is-announcing::before {
+    animation-duration: 1s !important;
+    animation-iteration-count: 1 !important;
   }
 }

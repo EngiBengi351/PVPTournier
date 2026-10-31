@@ -1,6 +1,10 @@
 /*
- * PVP Tournier — pure game logic (no DOM, no network).
+ * PVPtournament — pure game logic (no DOM, no network).
  * Works in the browser (window.PVPLogic) and in Node (module.exports).
+ *
+ * Match shape: a fixed pool of 7 kits. Each player bans 1 kit and picks 2
+ * kits (2 bans + 4 picks = 6 kits). The single kit left over is the decider,
+ * only played when the duel is tied after all four rounds.
  */
 (function (root, factory) {
   const api = factory();
@@ -10,8 +14,12 @@
   'use strict';
 
   const VERSION = 1;
-  const MAX_BAN_PER_PLAYER = 3;
-  const FORMATS = [2, 3, 5];
+  const POOL_SIZE = 7;
+  const BANS_PER_PLAYER = 1;
+  const PICKS_PER_PLAYER = 2;
+  const TOTAL_PICKS = PICKS_PER_PLAYER * 2;
+  const TOTAL_ROUNDS = TOTAL_PICKS;
+  const DECIDER_ROUND = TOTAL_ROUNDS;
   const USERNAME_RE = /^[A-Za-z0-9_]{3,16}$/;
 
   const KITS = [
@@ -38,19 +46,16 @@
     return role === 'p1' ? 'p2' : 'p1';
   }
 
-  function picksFor(format) {
-    return format * 2 - 1;
+  function picksFor() {
+    return TOTAL_PICKS;
   }
 
-  function requiredKits(rules) {
-    return picksFor(rules.format) + rules.banCount * 2;
+  function requiredKits() {
+    return POOL_SIZE;
   }
 
-  function maxBansFor(poolSize, format) {
-    const picks = picksFor(Number(format));
-    const size = Number(poolSize);
-    if (!Number.isFinite(picks) || !Number.isFinite(size)) return 0;
-    return Math.max(0, Math.min(MAX_BAN_PER_PLAYER, Math.floor((size - picks) / 2)));
+  function maxBansFor() {
+    return BANS_PER_PLAYER;
   }
 
   function validateUsername(name) {
@@ -66,15 +71,7 @@
   }
 
   function validateRules(input) {
-    if (!input || typeof input !== 'object') return fail('No rules were provided.');
-
-    const format = Number(input.format);
-    if (FORMATS.indexOf(format) === -1) return fail('Unsupported round format.');
-
-    const banCount = Number(input.banCount);
-    if (!Number.isInteger(banCount) || banCount < 0 || banCount > MAX_BAN_PER_PLAYER) {
-      return fail('Ban count must be between 0 and ' + MAX_BAN_PER_PLAYER + '.');
-    }
+    if (!input || typeof input !== 'object') return fail('No kit pool was provided.');
 
     const rawPool = Array.isArray(input.pool) ? input.pool : [];
     const pool = [];
@@ -82,23 +79,25 @@
       if (KIT_MAP.has(id) && pool.indexOf(id) === -1) pool.push(id);
     });
 
-    const picks = picksFor(format);
-    const needed = picks + banCount * 2;
-
-    if (pool.length < needed) {
+    if (pool.length !== POOL_SIZE) {
       return fail(
-        'This setup needs ' + needed + ' modes in the pool (' + picks + ' picks + ' +
-          banCount * 2 + ' bans), but only ' + pool.length + ' are selected.',
-        { needed: needed, picks: picks, pool: pool }
+        'The pool must hold exactly ' + POOL_SIZE + ' gamemodes (' + pool.length + ' selected).',
+        { needed: POOL_SIZE, pool: pool }
       );
     }
 
-    return { ok: true, needed: needed, picks: picks, pool: pool };
+    return { ok: true, needed: POOL_SIZE, picks: TOTAL_PICKS, pool: pool };
   }
 
   function normalizeRules(input) {
     const check = validateRules(input);
     if (!check.ok) return check;
+
+    // One player starts and both bans and picks always alternate, so the
+    // starter is the only draft choice that matters.
+    const starter = input.firstPick === 'p2' || input.firstPick === 'p1'
+      ? input.firstPick
+      : (input.firstBan === 'p2' ? 'p2' : 'p1');
 
     return {
       ok: true,
@@ -106,34 +105,29 @@
       picks: check.picks,
       rules: {
         pool: check.pool.slice(),
-        format: Number(input.format),
-        banCount: Number(input.banCount),
-        order: input.order === 'snake' ? 'snake' : 'alternate',
-        firstBan: input.firstBan === 'p2' ? 'p2' : 'p1',
-        firstPick: input.firstPick === 'p2' ? 'p2' : 'p1'
+        banCount: BANS_PER_PLAYER,
+        order: 'alternate',
+        firstBan: starter,
+        firstPick: starter
       }
     };
   }
 
   function buildSteps(rules) {
+    const starter = rules.firstPick === 'p2' ? 'p2' : 'p1';
     const steps = [];
-    let banOwner = rules.firstBan === 'p2' ? 'p2' : 'p1';
+    let owner = starter;
 
-    for (let i = 0; i < rules.banCount * 2; i += 1) {
-      steps.push({ kind: 'ban', owner: banOwner });
-      banOwner = otherRole(banOwner);
+    for (let i = 0; i < BANS_PER_PLAYER * 2; i += 1) {
+      steps.push({ kind: 'ban', owner: owner });
+      owner = otherRole(owner);
     }
 
-    const picks = picksFor(rules.format);
-    let pickOwner = rules.firstPick === 'p2' ? 'p2' : 'p1';
+    owner = starter;
 
-    for (let i = 0; i < picks; i += 1) {
-      steps.push({ kind: 'pick', owner: pickOwner });
-      if (rules.order === 'snake') {
-        if (i % 2 === 0) pickOwner = otherRole(pickOwner);
-      } else {
-        pickOwner = otherRole(pickOwner);
-      }
+    for (let i = 0; i < TOTAL_PICKS; i += 1) {
+      steps.push({ kind: 'pick', owner: owner });
+      owner = otherRole(owner);
     }
 
     return steps;
@@ -163,6 +157,8 @@
       },
       steps: steps,
       phase: 'draft',
+      decider: null,
+      ready: { p1: false, p2: false },
       round: 0,
       scores: { p1: 0, p2: 0 },
       votes: { p1: null, p2: null },
@@ -188,12 +184,6 @@
     return pickedSteps(game).map(function (step) { return step.kit; });
   }
 
-  function currentKit(game) {
-    if (!game) return null;
-    const picks = pickedKits(game);
-    return picks[game.round] || null;
-  }
-
   function usedKits(game) {
     if (!game || !Array.isArray(game.steps)) return [];
     return game.steps
@@ -206,8 +196,21 @@
     return game.rules.pool.filter(function (id) { return used.indexOf(id) === -1; });
   }
 
-  function winsNeeded(game) {
-    return game.rules.format;
+  function isDeciderRound(game) {
+    return !!game && game.round >= DECIDER_ROUND;
+  }
+
+  function kitForRound(game, round) {
+    if (!game) return null;
+    const index = Number(round);
+    if (!Number.isInteger(index) || index < 0) return null;
+    if (index >= DECIDER_ROUND) return game.decider || null;
+    return pickedKits(game)[index] || null;
+  }
+
+  function currentKit(game) {
+    if (!game) return null;
+    return kitForRound(game, game.round);
   }
 
   function applyPick(game, role, stepIndex, kitId) {
@@ -225,7 +228,7 @@
 
     const step = game.steps[index];
     if (step.kit) return fail('That slot is already locked.');
-    if (step.owner !== role) return fail("It is not your turn.");
+    if (step.owner !== role) return fail('It is not your turn.');
 
     const id = String(kitId);
     if (game.rules.pool.indexOf(id) === -1) return fail('That gamemode is not in the pool.');
@@ -235,7 +238,11 @@
     next.steps[index].kit = id;
     next.updatedAt = Date.now();
 
-    if (activeStepIndex(next) === -1) next.phase = 'match';
+    if (activeStepIndex(next) === -1) {
+      next.decider = remainingKits(next)[0] || null;
+      next.ready = { p1: false, p2: false };
+      next.phase = 'reveal';
+    }
 
     return {
       ok: true,
@@ -246,7 +253,36 @@
         stepIndex: index,
         kitId: id,
         kind: step.kind,
-        phase: next.phase
+        phase: next.phase,
+        decider: next.decider
+      }
+    };
+  }
+
+  function applyReady(game, role) {
+    if (!game) return fail('No active match.');
+    if (game.phase !== 'reveal') return fail('The decider was not announced yet.');
+    if (role !== 'p1' && role !== 'p2') return fail('Unknown player.');
+
+    const next = cloneGame(game);
+    next.ready[role] = true;
+    next.updatedAt = Date.now();
+
+    const both = next.ready.p1 && next.ready.p2;
+    if (both) {
+      next.phase = 'match';
+      next.votes = { p1: null, p2: null };
+      next.round = 0;
+    }
+
+    return {
+      ok: true,
+      game: next,
+      event: {
+        type: both ? 'round-start' : 'ready',
+        role: role,
+        round: next.round,
+        decider: next.decider
       }
     };
   }
@@ -266,13 +302,15 @@
     if (next.votes.p1 && next.votes.p2) {
       if (next.votes.p1 === next.votes.p2) {
         const winner = next.votes.p1;
-        const kitId = pickedKits(next)[next.round] || null;
+        const deciderRound = next.round >= DECIDER_ROUND;
+        const kitId = kitForRound(next, next.round);
 
         next.scores[winner] += 1;
         next.votes = { p1: null, p2: null };
         next.history.push({
           round: next.round,
           kit: kitId,
+          decider: deciderRound,
           winner: winner,
           scores: { p1: next.scores.p1, p2: next.scores.p2 }
         });
@@ -280,12 +318,24 @@
         event.type = 'round';
         event.winner = winner;
         event.kitId = kitId;
+        event.decider = deciderRound;
         event.scores = { p1: next.scores.p1, p2: next.scores.p2 };
 
-        if (next.scores[winner] >= next.rules.format) {
+        if (deciderRound) {
           next.phase = 'victory';
           next.winner = winner;
           event.matchOver = true;
+        } else if (next.round === TOTAL_ROUNDS - 1) {
+          if (next.scores.p1 === next.scores.p2) {
+            next.round = DECIDER_ROUND;
+            next.ready = { p1: false, p2: false };
+            event.tiebreak = true;
+            event.nextRound = next.round;
+          } else {
+            next.phase = 'victory';
+            next.winner = next.scores.p1 > next.scores.p2 ? 'p1' : 'p2';
+            event.matchOver = true;
+          }
         } else {
           next.round += 1;
           event.nextRound = next.round;
@@ -307,6 +357,9 @@
     if (action.type === 'vote') {
       return applyVote(game, role, action.winner);
     }
+    if (action.type === 'ready') {
+      return applyReady(game, role);
+    }
     return fail('Unknown action.');
   }
 
@@ -319,15 +372,19 @@
       game.players.p1 &&
       game.players.p2 &&
       game.scores &&
-      ['draft', 'match', 'victory'].indexOf(game.phase) !== -1
+      ['draft', 'reveal', 'match', 'victory'].indexOf(game.phase) !== -1
     );
   }
 
   return {
     VERSION: VERSION,
-    MAX_BAN_PER_PLAYER: MAX_BAN_PER_PLAYER,
-    FORMATS: FORMATS,
-    USERNAME_RE: USERNAME_RE,
+    POOL_SIZE: POOL_SIZE,
+    BANS_PER_PLAYER: BANS_PER_PLAYER,
+    PICKS_PER_PLAYER: PICKS_PER_PLAYER,
+    TOTAL_PICKS: TOTAL_PICKS,
+    TOTAL_ROUNDS: TOTAL_ROUNDS,
+    DECIDER_ROUND: DECIDER_ROUND,
+    MAX_BAN_PER_PLAYER: BANS_PER_PLAYER,
     KITS: KITS,
     KIT_MAP: KIT_MAP,
     validateUsername: validateUsername,
@@ -342,11 +399,13 @@
     activeStepIndex: activeStepIndex,
     pickedSteps: pickedSteps,
     pickedKits: pickedKits,
-    currentKit: currentKit,
     usedKits: usedKits,
     remainingKits: remainingKits,
-    winsNeeded: winsNeeded,
+    isDeciderRound: isDeciderRound,
+    kitForRound: kitForRound,
+    currentKit: currentKit,
     applyPick: applyPick,
+    applyReady: applyReady,
     applyVote: applyVote,
     applyAction: applyAction,
     isValidGame: isValidGame,

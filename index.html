@@ -4,13 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#070b07" />
-  <title>PVP Tournier — Minecraft PvP 1v1 Tournament</title>
+  <title>PVPtournament — Minecraft PvP 1v1 Tournament</title>
   <meta name="description" content="A Minecraft PvP 1v1 tournament for two players. Draft gamemodes, pick &amp; ban, fight each round and crown a champion — directly peer-to-peer." />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=4" />
 
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b110a'/%3E%3Cpath d='M18 46l6-2 22-22 3-7-7 3-22 22-2 6z' fill='none' stroke='%237ed957' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M36 18l10 10' stroke='%237ed957' stroke-width='3'/%3E%3C/svg%3E" />
 </head>
@@ -24,7 +24,7 @@
 
   <header class="topbar">
     <div class="topbar-inner">
-      <div class="brand" aria-label="PVP Tournier">
+      <div class="brand" aria-label="PVPtournament">
         <span class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
             <path d="M18.5 3.5L21 6l-9.7 9.7-3.6.5.5-3.6L18.5 3.5z" />
@@ -32,7 +32,7 @@
             <path d="M14.6 7.4l2 2" />
           </svg>
         </span>
-        <span class="brand-text">PVP <em>TOURNIER</em></span>
+        <span class="brand-text">PVP <em>tournament</em></span>
         <span class="brand-tag">1v1</span>
       </div>
 
@@ -56,20 +56,20 @@
           <p class="eyebrow"><span class="eyebrow-line"></span><b>Minecraft PVP</b><span class="eyebrow-sep">·</span>1v1 tournament<span class="eyebrow-line"></span></p>
           <h1 class="hero-title" id="heroTitle">
             <span class="t-outline">PVP</span>
-            <span class="t-fill">Tournier</span>
+            <span class="t-fill">tournament</span>
           </h1>
 
           <div class="hero-chips" aria-label="Tournament format">
             <span class="hero-chip hero-chip-mc"><i class="mc-block" aria-hidden="true"></i>Minecraft PvP</span>
             <span class="hero-chip hero-chip-vs">1v1</span>
             <span class="hero-chip">Pick &amp; ban</span>
-            <span class="hero-chip">FT2 · FT3 · FT5</span>
+            <span class="hero-chip">4 rounds + decider</span>
           </div>
 
           <div class="mode-deck">
             <div class="mode-deck-head">
               <span class="mode-deck-title">Gamemode pool</span>
-              <span class="mode-deck-count" id="heroModeCount">11 modes</span>
+              <span class="mode-deck-count" id="heroModeCount">7-kit pool</span>
             </div>
             <div class="mode-ribbon" id="heroModeRibbon"></div>
           </div>
@@ -128,7 +128,7 @@
               </span>
               <span class="action-copy">
                 <strong>Send Duel Request</strong>
-                <small>Pick a gamemode pool, format &amp; order</small>
+                <small>Pick 7 modes · 1 ban &amp; 2 picks each</small>
               </span>
               <span class="action-arrow" aria-hidden="true">→</span>
             </button>
@@ -179,7 +179,7 @@
         <div class="vs-block">
           <span class="vs" aria-hidden="true">VS</span>
           <div class="turn-pill" id="turnPill"><i class="turn-dot"></i><span id="turnText">Preparing draft</span></div>
-          <span class="format-chip" id="formatChip">FT3</span>
+          <span class="format-chip" id="formatChip">7 KITS</span>
         </div>
 
         <div class="player-chip right" id="draftP2"></div>
@@ -192,6 +192,19 @@
       </div>
 
       <div class="draft-body" id="draftBody"></div>
+
+      <div class="draft-ready" id="draftReady" hidden>
+        <div class="draft-ready-head">
+          <span class="draft-ready-kicker">Decider announced</span>
+          <span class="draft-ready-sub">Only played if the duel is tied after four rounds</span>
+        </div>
+        <div class="draft-ready-row">
+          <div class="ready-pill" id="readyPillP1"></div>
+          <button class="btn btn-primary btn-lg" id="readyBtn" type="button" disabled>Announcing…</button>
+          <div class="ready-pill right" id="readyPillP2"></div>
+        </div>
+        <p class="micro" id="deciderHint">The decider is being announced…</p>
+      </div>
 
       <p class="draft-note">Only the player whose turn it is can lock a kit. Every choice syncs live to your opponent.</p>
     </section>
@@ -213,7 +226,7 @@
         <div class="round-block">
           <span>ROUND</span>
           <strong id="roundNumber">1</strong>
-          <em id="roundFormat">FIRST TO 3</em>
+          <em id="roundFormat">ROUND 1 OF 4</em>
         </div>
         <div class="score-side right" id="scoreP2"></div>
       </div>
@@ -265,7 +278,7 @@
   <div id="toastRoot" class="toast-root" role="status" aria-live="polite"></div>
 
   <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
-  <script src="logic.js"></script>
-  <script src="app.js"></script>
+  <script src="logic.js?v=4"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
